@@ -213,26 +213,40 @@
 </div>
 
 <script>
+  var DB = 'https://klistata-a49de-default-rtdb.europe-west1.firebasedatabase.app/skore.json';
   var scores = [0, 0];
+  var remoteUpdate = false;
 
   function save() {
-    localStorage.setItem('kliste_scores', JSON.stringify(scores));
-    localStorage.setItem('kliste_name1', document.getElementById('name1').value);
-    localStorage.setItem('kliste_name2', document.getElementById('name2').value);
+    var data = {
+      score1: scores[0],
+      score2: scores[1],
+      name1: document.getElementById('name1').value,
+      name2: document.getElementById('name2').value
+    };
+    fetch(DB, { method: 'PUT', body: JSON.stringify(data) });
   }
 
-  function load() {
-    var s = localStorage.getItem('kliste_scores');
-    if (s) {
-      scores = JSON.parse(s);
-      document.getElementById('score1').textContent = scores[0];
-      document.getElementById('score2').textContent = scores[1];
-    }
-    var n1 = localStorage.getItem('kliste_name1');
-    var n2 = localStorage.getItem('kliste_name2');
-    if (n1) document.getElementById('name1').value = n1;
-    if (n2) document.getElementById('name2').value = n2;
+  function applyData(data) {
+    if (!data) return;
+    remoteUpdate = true;
+    scores[0] = data.score1 || 0;
+    scores[1] = data.score2 || 0;
+    document.getElementById('score1').textContent = scores[0];
+    document.getElementById('score2').textContent = scores[1];
+    if (data.name1) document.getElementById('name1').value = data.name1;
+    if (data.name2) document.getElementById('name2').value = data.name2;
+    remoteUpdate = false;
   }
+
+  function poll() {
+    fetch(DB).then(function(r){ return r.json(); }).then(function(data){
+      applyData(data);
+    }).catch(function(){});
+  }
+
+  poll();
+  setInterval(poll, 2000);
 
   function change(team, delta) {
     var idx = team - 1;
@@ -257,18 +271,10 @@
     inp.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') inp.blur();
     });
-    inp.addEventListener('input', save);
+    inp.addEventListener('input', function(){
+      if (!remoteUpdate) save();
+    });
   });
-
-  load();
-
-  if ('serviceWorker' in navigator) {
-    var sw = 'data:application/javascript,' + encodeURIComponent(
-      'self.addEventListener("install",function(e){e.waitUntil(caches.open("skore-v1").then(function(c){return c.addAll([])}))});' +
-      'self.addEventListener("fetch",function(e){e.respondWith(fetch(e.request).catch(function(){return caches.match(e.request)}))});'
-    );
-    navigator.serviceWorker.register(sw, {scope: './'}).catch(function(){});
-  }
 </script>
 </body>
 </html>
